@@ -2,16 +2,33 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <!-- Ensure proper scaling on mobile -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Graph SketchPad</title>
   <!-- Import the Roboto font for a modern look -->
   <link href="https://fonts.googleapis.com/css?family=Roboto:400,500&display=swap" rel="stylesheet">
   <style>
-    /* Header styling */
+    /* ─── GLOBAL STYLES ───────────────────────────────────────────── */
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: 'Roboto', sans-serif;
+      background-color: #d3d3d3;
+      color: #333;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    /* ─── HEADER ───────────────────────────────────────────── */
     #header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 20px;
+      padding: 20px;
     }
     #header h1 {
       margin: 0;
@@ -21,79 +38,99 @@
       font-size: 14px;
       color: #555;
     }
-    /* Overall page styling */
-    body {
-      font-family: 'Roboto', sans-serif;
-      margin: 20px;
-      background-color: #d3d3d3;  /* Slightly darker grey */
-      color: #333;
+    
+    /* ─── MAIN CONTENT (Desktop: canvas & settings side-by-side) ───────────────────────────────────────────── */
+    #mainContent {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      gap: 20px;
+      padding-bottom: 20px;
     }
-    /* Canvas styling (remains white) */
+    
+    /* ─── CANVAS ───────────────────────────────────────────── */
     #graphCanvas {
       border: 1px solid #333;
-      cursor: crosshair;
       background-color: #fff;
+      cursor: crosshair;
       display: block;
-      margin: 0 auto;
+      margin: 0; 
     }
-    /* Controls container styling */
+    
+    /* ─── CUSTOMIZATION PANEL (Desktop) ───────────────────────────────────────────── */
+    #customizationPanel {
+      background-color: #fff;
+      border: 2px solid blue;
+      border-radius: 4px;
+      padding: 10px;
+      width: 230px;
+      box-sizing: border-box;
+      align-self: flex-start;
+    }
+    #customizationPanel h3 {
+      margin-top: 0;
+      margin-bottom: 10px;
+      font-size: 16px;
+    }
+    #customizationPanel label {
+      font-size: 14px;
+    }
+    #customizationPanel select,
+    #customizationPanel input[type="color"],
+    #customizationPanel input[type="number"],
+    #customizationPanel input[type="text"] {
+      margin-left: 5px;
+      margin-top: 3px;
+      margin-bottom: 3px;
+    }
+    #customizationPanel .section {
+      margin-bottom: 8px;
+    }
+    
+    /* ─── TOOLTIP ───────────────────────────────────────────── */
+    #tooltip {
+      position: absolute;
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid #ccc;
+      padding: 5px;
+      font-size: 12px;
+      pointer-events: none;
+      display: none;
+      white-space: pre;
+      z-index: 10;
+    }
+    
+    /* ─── CONTROLS (Below graph on desktop) ───────────────────────────────────────────── */
     #controls {
-      margin-top: 20px;
       text-align: center;
-      font-size: 18px;
-      line-height: 1.6;
+      padding-bottom: 20px;
     }
-    /* Row 1: Graph Statistics, Clean Graph Button, and Grid Controls */
+    /* New container for graph actions (Clean/Reset) above the stats */
+    #graphActions {
+      margin-bottom: 10px;
+    }
+    #graphActions button {
+      background-color: #28a745;
+      border: none;
+      color: #fff;
+      padding: 8px 12px;
+      margin: 0 5px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      transition: background-color 0.3s ease;
+    }
+    #graphActions button:hover {
+      background-color: #218838;
+    }
     #stats {
       margin-bottom: 10px;
     }
     #stats span {
       margin: 0 20px;
     }
-    /* Note: Instead of using display:none we use visibility:hidden so that the reserved space remains */
-    #cleanGraphBtn {
-      background-color: #28a745;
-      border: none;
-      color: #fff;
-      padding: 8px 12px;
-      margin-left: 10px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 16px;
-      transition: background-color 0.3s ease;
-      visibility: visible;
-    }
-    #cleanGraphBtn:hover {
-      background-color: #218838;
-    }
-    /* Fixed grid controls to avoid layout shifting */
-    #gridControls {
-      display: inline-block;
-      vertical-align: middle;
-      width: 300px; /* Fixed width reserved for grid controls */
-    }
-    #gridControls label {
-      margin-left: 10px;
-      font-size: 14px;
-    }
-    #gridOptions {
-      display: inline-block;
-      vertical-align: middle;
-      margin-left: 10px;
-      visibility: hidden;  /* Initially hidden */
-    }
-    #gridOptions input[type="number"] {
-      width: 50px;
-      margin: 0 5px;
-      font-size: 14px;
-    }
-    /* Row 2: Modes and Color Picker */
     #modes {
-      display: flex;
-      flex-wrap: nowrap;
-      justify-content: center;
-      align-items: center;
-      gap: 20px;
       margin-bottom: 10px;
     }
     .modeText {
@@ -101,7 +138,6 @@
       min-width: 120px;
       text-align: center;
     }
-    /* Row 3: Feature Buttons */
     #features {
       margin-bottom: 10px;
     }
@@ -122,108 +158,259 @@
     #features button:focus {
       outline: none;
     }
-    input[type="color"] {
+    /* Container for Famous Graphs button and drop-down */
+    #famousGraphsContainer {
+      display: inline-block;
+      position: relative;
       vertical-align: middle;
-      margin-left: 10px;
-      cursor: pointer;
-      height: 30px;
-      width: 30px;
-      border: none;
-      background: none;
+    }
+    #famousGraphsContainer select {
+      display: none;
+      position: absolute;
+      top: 100%;
+      left: 0;
+      z-index: 5;
     }
     #shortestPathResult {
       margin-top: 15px;
       font-weight: 500;
-      white-space: pre-wrap; /* preserves newlines */
+      white-space: pre-wrap;
+    }
+    
+    /* ─── MOBILE CONTROLS (Only visible on mobile) ───────────────────────────────────────────── */
+    #mobileControls {
+      display: none; /* Hidden by default; shown via media query */
+    }
+    #mobileControls button {
+      padding: 10px 15px;
+      font-size: 16px;
+      border-radius: 4px;
+      border: none;
+      background-color: #007BFF;
+      color: #fff;
+      cursor: pointer;
+    }
+    #mobileControls button.active {
+      background-color: #0056b3;
+    }
+    
+    /* ─── RESPONSIVE / MOBILE STYLES ───────────────────────────────────────────── */
+    @media (max-width: 768px) {
+      /* Stack main content vertically */
+      #mainContent {
+        flex-direction: column;
+        align-items: center;
+      }
+      /* Scale the canvas to the viewport width */
+      #graphCanvas {
+        width: 100%;
+        max-width: 800px;
+        height: auto;
+      }
+      /* Make the customization panel take up most of the width, and hide it by default */
+      #customizationPanel {
+        width: 90%;
+        margin-top: 10px;
+        display: none; /* Toggled by the mobile settings button */
+      }
+      /* Show the mobile controls below the canvas */
+      #mobileControls {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 10px;
+        margin: 10px 0;
+      }
+    }
+    @media (min-width: 769px) {
+      /* Ensure mobile controls remain hidden on desktop */
+      #mobileControls {
+        display: none;
+      }
+      /* Ensure customization panel is shown on desktop */
+      #customizationPanel {
+        display: block;
+      }
     }
   </style>
 </head>
 <body>
-  <!-- Header -->
+  <!-- HEADER -->
   <div id="header">
     <h1>Graph SketchPad</h1>
     <div class="byline">By: Kellam Adams, 2025</div>
   </div>
   
-  <!-- Canvas -->
-  <canvas id="graphCanvas" width="800" height="600"></canvas>
+  <!-- MAIN CONTENT: Canvas and Customization Panel (side-by-side on desktop, stacked on mobile) -->
+  <div id="mainContent">
+    <!-- Graph Canvas -->
+    <canvas id="graphCanvas" width="800" height="600"></canvas>
+    
+    <!-- Customization Panel (shown on desktop; on mobile, toggle via button) -->
+    <div id="customizationPanel">
+      <h3>Customization</h3>
+      
+      <!-- Vertex Shape/Color -->
+      <div class="section">
+        <label>Vertex Shape:</label><br>
+        <select id="vertexShapeSelect">
+          <option value="circle" selected>Circle</option>
+          <option value="square">Square</option>
+          <option value="icon">Icon</option>
+        </select>
+        <br>
+        <input type="text" id="iconURL" placeholder="Icon URL" style="display:none; width:90%;">
+      </div>
+      
+      <div class="section">
+        <label>Pick Vertex Color:</label><br>
+        <input type="color" id="colorPicker" value="#ff0000">
+      </div>
+      
+      <!-- Edge Style -->
+      <div class="section">
+        <label>Edge Style:</label><br>
+        <select id="edgeStyleSelect">
+          <option value="solid" selected>Solid</option>
+          <option value="dashed">Dashed</option>
+          <option value="curved">Curved</option>
+        </select>
+      </div>
+      
+      <!-- Grid Lines and # of lines -->
+      <div class="section">
+        <label><input type="checkbox" id="gridCheckbox"> Grid Lines</label>
+        <div id="gridOptions" style="margin-top:4px; visibility:hidden; display: flex; align-items: center;">
+          <label># of Grid Lines:</label>
+          <input type="number" id="gridVertical" value="10" min="1" style="width:50px; margin: 0 5px;">
+          <span> x </span>
+          <input type="number" id="gridHorizontal" value="10" min="1" style="width:50px; margin: 0 5px;">
+        </div>
+      </div>
+      <!-- (The Clean Graph button was removed from here.) -->
+    </div>
+  </div>
   
-  <!-- Controls -->
+  <!-- MOBILE CONTROLS: (Only visible on mobile devices) -->
+  <div id="mobileControls">
+    <button id="mobileVertexModeBtn">Vertex Mode</button>
+    <button id="mobileEdgeModeBtn">Edge Mode</button>
+    <button id="mobileToggleWeightBtn">Edge Weight: Auto</button>
+    <button id="mobileSettingsBtn">Settings</button>
+  </div>
+  
+  <!-- TOOLTIP -->
+  <div id="tooltip"></div>
+  
+  <!-- CONTROLS (Desktop version) -->
   <div id="controls">
-    <!-- Row 1: Graph Statistics, Clean Graph Button, and Grid Controls -->
+    <!-- Graph action buttons placed above the statistics -->
+    <div id="graphActions">
+      <button id="cleanGraphBtn">Clean Graph</button>
+      <button id="resetGraphBtn">Reset Graph</button>
+    </div>
     <div id="stats">
       <span>Vertices: <span id="vertexCount">0</span></span>
       <span>Edges: <span id="edgeCount">0</span></span>
-      <span>Components: <span id="componentCount">0</span></span>
-      <button id="cleanGraphBtn">Clean Graph</button>
-      <div id="gridControls">
-        <label><input type="checkbox" id="gridCheckbox"> Grid Lines</label>
-        <div id="gridOptions">
-          <label># of Grid Lines:</label>
-          <input type="number" id="gridVertical" value="10" min="1">
-          <input type="number" id="gridHorizontal" value="10" min="1">
-        </div>
-      </div>
+      <span>Components: <span id="componentCount">N/A</span></span>
     </div>
-    <!-- Row 2: Modes and Color Picker -->
     <div id="modes">
       <span>Current Mode: <span id="currentMode" class="modeText">Vertex Mode</span></span>
       <span>Edge Weight Mode: <span id="currentWeightMode" class="modeText">Auto</span></span>
-      <span>Pick Vertex Color: <input type="color" id="colorPicker" value="#ff0000"></span>
     </div>
-    <!-- Row 3: Feature Buttons -->
     <div id="features">
       <button id="shortestPathBtn">Calculate Shortest Path Between 2 Nodes</button>
       <button id="inputSetBtn">Input Vertex/Edge Set</button>
       <button id="checkBipartiteBtn">Check if Bipartite</button>
+      <!-- Famous Graphs: visible only when gridlines are NOT checked -->
+      <div id="famousGraphsContainer">
+        <button id="famousGraphsBtn">Famous Graphs</button>
+        <select id="famousGraphsSelect">
+          <option value="">Select a graph...</option>
+          <option value="petersen">Petersen Graph</option>
+          <option value="complete">Complete Graph (K5)</option>
+          <option value="cycle">Cycle Graph (C6)</option>
+          <option value="star">Star Graph</option>
+          <option value="wheel">Wheel Graph</option>
+        </select>
+      </div>
     </div>
-    <!-- Result Display Area -->
     <div id="shortestPathResult"></div>
   </div>
   
   <script>
-    // Get the canvas and its 2D drawing context.
+    // ───── GLOBAL VARIABLES ─────────────────────────────
     const canvas = document.getElementById("graphCanvas");
     const ctx = canvas.getContext("2d");
     
-    // Data arrays and undo stack.
     const vertices = [];
     const edges = [];
     let undoStack = [];
     
-    // Drawing parameters.
     const vertexRadius = 15;
     let selectedVertex = null;
     let currentColor = document.getElementById("colorPicker").value;
     
-    // Modes.
-    let mode = "vertex"; // "vertex" or "edge"
-    let edgeWeightMode = "auto"; // "auto" = weight "1", "prompt" asks for weight
+    // Modes: "vertex" or "edge" and edge weight mode ("auto" or "prompt")
+    let mode = "vertex";
+    let edgeWeightMode = "auto";
     
-    // Grid controls.
+    // Customization variables
+    let vertexShape = "circle";
+    let iconURL = "";
+    let iconImage = null;
+    let edgeLineStyle = "solid";
+    
+    // Tooltip element
+    const tooltip = document.getElementById("tooltip");
+    
+    // ───── GRID CONTROLS ─────────────────────────────
     const gridCheckbox = document.getElementById("gridCheckbox");
     const gridOptions = document.getElementById("gridOptions");
     const gridVerticalInput = document.getElementById("gridVertical");
     const gridHorizontalInput = document.getElementById("gridHorizontal");
     
-    // When gridlines are toggled, update grid options, clean the graph,
-    // and update the Clean Graph button's visibility.
     gridCheckbox.addEventListener("change", () => {
       gridOptions.style.visibility = gridCheckbox.checked ? "visible" : "hidden";
       updateCleanGraphVisibility();
-      wipeGraph();
+      // Do not rearrange (or wipe) the graph automatically on grid change;
+      // just redraw the grid.
+      redraw();
     });
-    
-    // When grid input values change, just redraw.
     gridVerticalInput.addEventListener("change", redraw);
     gridHorizontalInput.addEventListener("change", redraw);
     
-    // Update currentColor.
+    // ───── UPDATE CUSTOMIZATION CONTROLS ─────────────────────────────
     document.getElementById("colorPicker").addEventListener("change", (e) => {
       currentColor = e.target.value;
     });
     
-    // Keydown events for mode switching and undo.
+    document.getElementById("vertexShapeSelect").addEventListener("change", (e) => {
+      vertexShape = e.target.value;
+      const iconURLInput = document.getElementById("iconURL");
+      if (vertexShape === "icon") {
+        iconURLInput.style.display = "inline-block";
+      } else {
+        iconURLInput.style.display = "none";
+      }
+      redraw();
+    });
+    
+    document.getElementById("iconURL").addEventListener("change", (e) => {
+      iconURL = e.target.value.trim();
+      if (iconURL !== "") {
+        iconImage = new Image();
+        iconImage.src = iconURL;
+        iconImage.onload = redraw;
+      }
+    });
+    
+    document.getElementById("edgeStyleSelect").addEventListener("change", (e) => {
+      edgeLineStyle = e.target.value;
+      redraw();
+    });
+    
+    // ───── KEYBOARD CONTROLS (Desktop only) ─────────────────────────────
     document.addEventListener("keydown", (e) => {
       if (e.ctrlKey && e.key.toLowerCase() === 'z') {
         e.preventDefault();
@@ -250,7 +437,7 @@
       }
     });
     
-    // Undo functions.
+    // ───── UNDO, CLEAN, AND RESET FUNCTIONS ─────────────────────────────
     function pushState() {
       const state = JSON.stringify({ vertices, edges });
       undoStack.push(state);
@@ -265,14 +452,37 @@
       selectedVertex = null;
       redraw();
     }
-    function wipeGraph() {
+    // Clean Graph rearranges the vertices into a circular layout with a 10% margin buffer.
+    function cleanGraph() {
+      if (vertices.length === 0) return;
+      pushState();
+      // 10% buffer on all sides:
+      const marginX = canvas.width * 0.1;
+      const marginY = canvas.height * 0.1;
+      const availableWidth = canvas.width - 2 * marginX;
+      const availableHeight = canvas.height - 2 * marginY;
+      // Center of the canvas:
+      const centerX = canvas.width / 2;
+      const centerY = canvas.height / 2;
+      // Radius is half of the smaller available dimension:
+      const radius = Math.min(availableWidth, availableHeight) / 2;
+      // Arrange vertices evenly around a circle:
+      for (let i = 0; i < vertices.length; i++) {
+        const angle = (2 * Math.PI * i) / vertices.length;
+        vertices[i].x = centerX + radius * Math.cos(angle);
+        vertices[i].y = centerY + radius * Math.sin(angle);
+      }
+      redraw();
+    }
+    // Reset Graph completely clears vertices and edges.
+    function resetGraph() {
       pushState();
       vertices.length = 0;
       edges.length = 0;
       redraw();
     }
     
-    // Grid functions.
+    // ───── GRID FUNCTIONS ─────────────────────────────
     function computeGridIntersections() {
       const verticalCount = parseInt(gridVerticalInput.value) || 10;
       const horizontalCount = parseInt(gridHorizontalInput.value) || 10;
@@ -340,8 +550,7 @@
       ctx.restore();
     }
     
-    // ─── HELPER FUNCTIONS ─────────────────────────────
-    // Returns a vertex if (x,y) is within its radius.
+    // ───── HELPER FUNCTIONS FOR VERTICES AND EDGES ─────────────────────────────
     function getVertexAt(x, y) {
       for (let i = 0; i < vertices.length; i++) {
         let v = vertices[i];
@@ -351,40 +560,84 @@
       }
       return null;
     }
-    // Draw a vertex as a filled circle with its name.
     function drawVertex(v) {
-      ctx.beginPath();
-      ctx.arc(v.x, v.y, vertexRadius, 0, 2 * Math.PI);
-      ctx.fillStyle = v.color;
-      ctx.fill();
-      ctx.strokeStyle = "black";
-      ctx.stroke();
+      if (vertexShape === "circle") {
+        ctx.beginPath();
+        ctx.arc(v.x, v.y, vertexRadius, 0, 2 * Math.PI);
+        ctx.fillStyle = v.color;
+        ctx.fill();
+        ctx.strokeStyle = "black";
+        ctx.stroke();
+      } else if (vertexShape === "square") {
+        ctx.fillStyle = v.color;
+        ctx.fillRect(v.x - vertexRadius, v.y - vertexRadius, vertexRadius * 2, vertexRadius * 2);
+        ctx.strokeStyle = "black";
+        ctx.strokeRect(v.x - vertexRadius, v.y - vertexRadius, vertexRadius * 2, vertexRadius * 2);
+      } else if (vertexShape === "icon") {
+        if (iconImage && iconImage.complete) {
+          ctx.drawImage(iconImage, v.x - vertexRadius, v.y - vertexRadius, vertexRadius * 2, vertexRadius * 2);
+        } else {
+          ctx.beginPath();
+          ctx.arc(v.x, v.y, vertexRadius, 0, 2 * Math.PI);
+          ctx.fillStyle = v.color;
+          ctx.fill();
+          ctx.strokeStyle = "black";
+          ctx.stroke();
+        }
+      }
       ctx.fillStyle = "black";
       ctx.font = "12px Roboto, sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillText(v.name, v.x, v.y);
     }
-    // Draw an edge between two vertices with its weight.
     function drawEdge(edge) {
       const fromVertex = vertices.find(v => v.id === edge.from);
       const toVertex = vertices.find(v => v.id === edge.to);
       if (!fromVertex || !toVertex) return;
-      ctx.beginPath();
-      ctx.moveTo(fromVertex.x, fromVertex.y);
-      ctx.lineTo(toVertex.x, toVertex.y);
+      
+      let lw = parseFloat(edge.weight);
+      if (isNaN(lw) || lw < 1) lw = 1;
+      ctx.lineWidth = lw * 2;
+      ctx.save();
+      
+      if (edgeLineStyle === "dashed") {
+        ctx.setLineDash([5, 5]);
+      } else {
+        ctx.setLineDash([]);
+      }
       ctx.strokeStyle = "black";
-      ctx.lineWidth = 2;
+      ctx.beginPath();
+      
+      if (edgeLineStyle === "curved") {
+        const midX = (fromVertex.x + toVertex.x) / 2;
+        const midY = (fromVertex.y + toVertex.y) / 2;
+        const dx = toVertex.x - fromVertex.x;
+        const dy = toVertex.y - fromVertex.y;
+        const dist = Math.hypot(dx, dy);
+        const offset = 20; 
+        const px = -dy / dist;
+        const py = dx / dist;
+        const cx = midX + px * offset;
+        const cy = midY + py * offset;
+        ctx.moveTo(fromVertex.x, fromVertex.y);
+        ctx.quadraticCurveTo(cx, cy, toVertex.x, toVertex.y);
+      } else {
+        ctx.moveTo(fromVertex.x, fromVertex.y);
+        ctx.lineTo(toVertex.x, toVertex.y);
+      }
       ctx.stroke();
-      // Draw the edge weight in the midpoint.
+      
       const midX = (fromVertex.x + toVertex.x) / 2;
       const midY = (fromVertex.y + toVertex.y) / 2;
       ctx.fillStyle = "red";
       ctx.font = "12px Roboto, sans-serif";
       ctx.fillText(edge.weight, midX, midY);
+      
+      ctx.restore();
     }
     
-    // ─── EDGE DRAGGING (for edge creation) ─────────────────────────────
+    // ───── EDGE DRAGGING (Mouse) ─────────────────────────────
     let isDraggingEdge = false;
     let dragStartVertex = null;
     let currentMouseX = 0;
@@ -392,8 +645,8 @@
     let startDragX = 0;
     let startDragY = 0;
     let skipClick = false;
-    const DRAG_THRESHOLD = 5; // pixels
-
+    const DRAG_THRESHOLD = 5;
+    
     canvas.addEventListener("mousedown", (e) => {
       if (mode !== "edge") return;
       const x = e.offsetX;
@@ -407,10 +660,11 @@
       }
     });
     canvas.addEventListener("mousemove", (e) => {
-      if (!isDraggingEdge) return;
-      currentMouseX = e.offsetX;
-      currentMouseY = e.offsetY;
-      redraw();
+      if (isDraggingEdge) {
+        currentMouseX = e.offsetX;
+        currentMouseY = e.offsetY;
+        redraw();
+      }
     });
     canvas.addEventListener("mouseup", (e) => {
       if (!isDraggingEdge) return;
@@ -437,12 +691,13 @@
       redraw();
     });
     
-    // ─── CLICK HANDLER (for vertex creation and edge selection) ─────────────────────────────
+    // ───── CLICK HANDLER (Mouse) ─────────────────────────────
     canvas.addEventListener("click", (e) => {
-      if (skipClick) { skipClick = false; return; }
-      const xOrig = e.offsetX;
-      const yOrig = e.offsetY;
-      let x = xOrig, y = yOrig;
+      if (skipClick) {
+        skipClick = false;
+        return;
+      }
+      let x = e.offsetX, y = e.offsetY;
       if (mode === "vertex") {
         pushState();
         if (gridCheckbox.checked) {
@@ -487,32 +742,108 @@
       redraw();
     });
     
-    // ─── CONTEXT MENU (right-click to rename a vertex) ─────────────────────────────
+    // ───── CONTEXT MENU (Rename vertex) ─────────────────────────────
     canvas.addEventListener("contextmenu", (e) => {
       e.preventDefault();
-      let x = e.offsetX;
-      let y = e.offsetY;
-      if (mode === "vertex") {
-        if (gridCheckbox.checked) {
-          const snapped = getSnappedCoordinates(x, y);
-          x = snapped.x;
-          y = snapped.y;
-        }
-        const clickedVertex = getVertexAt(x, y);
-        if (clickedVertex) {
-          pushState();
-          let newName = prompt("Enter custom name for this vertex:", clickedVertex.name);
-          if (newName && newName.trim() !== "") {
-            clickedVertex.name = newName.trim();
-            redraw();
-          }
+      let x = e.offsetX, y = e.offsetY;
+      if (gridCheckbox.checked) {
+        const snapped = getSnappedCoordinates(x, y);
+        x = snapped.x;
+        y = snapped.y;
+      }
+      const clickedVertex = getVertexAt(x, y);
+      if (clickedVertex) {
+        pushState();
+        let newName = prompt("Enter custom name for this vertex:", clickedVertex.name);
+        if (newName && newName.trim() !== "") {
+          clickedVertex.name = newName.trim();
+          redraw();
         }
       }
       return false;
     });
     
-    // ─── FEATURE BUTTONS ─────────────────────────────
-    // Input Vertex/Edge Set Feature.
+    // ───── TOUCH SUPPORT FOR MOBILE ─────────────────────────────
+    canvas.addEventListener("touchstart", (e) => {
+      e.preventDefault();
+      let touch = e.touches[0];
+      let rect = canvas.getBoundingClientRect();
+      let x = touch.clientX - rect.left;
+      let y = touch.clientY - rect.top;
+      if (mode === "edge") {
+        const v = getVertexAt(x, y);
+        if (v) {
+          isDraggingEdge = true;
+          dragStartVertex = v;
+          startDragX = x;
+          startDragY = y;
+        }
+      }
+    }, {passive: false});
+    
+    canvas.addEventListener("touchmove", (e) => {
+      e.preventDefault();
+      if (isDraggingEdge) {
+        let touch = e.touches[0];
+        let rect = canvas.getBoundingClientRect();
+        currentMouseX = touch.clientX - rect.left;
+        currentMouseY = touch.clientY - rect.top;
+        redraw();
+      }
+    }, {passive: false});
+    
+    canvas.addEventListener("touchend", (e) => {
+      e.preventDefault();
+      let touch = e.changedTouches[0];
+      let rect = canvas.getBoundingClientRect();
+      let x = touch.clientX - rect.left;
+      let y = touch.clientY - rect.top;
+      if (isDraggingEdge) {
+        const dragDist = Math.hypot(x - startDragX, y - startDragY);
+        if (dragDist > DRAG_THRESHOLD) {
+          const targetVertex = getVertexAt(x, y);
+          if (targetVertex && targetVertex.id !== dragStartVertex.id) {
+            pushState();
+            let weight;
+            if (edgeWeightMode === "prompt") {
+              weight = prompt("Enter edge weight:", "1");
+              if (!weight || weight.trim() === "") weight = "1";
+            } else {
+              weight = "1";
+            }
+            edges.push({ from: dragStartVertex.id, to: targetVertex.id, weight: weight });
+          }
+        }
+        isDraggingEdge = false;
+        dragStartVertex = null;
+        redraw();
+      } else {
+        if (mode === "vertex") {
+          pushState();
+          if (gridCheckbox.checked) {
+            const snapped = getSnappedCoordinates(x, y);
+            x = snapped.x;
+            y = snapped.y;
+          }
+          const clickedVertex = getVertexAt(x, y);
+          if (clickedVertex) {
+            clickedVertex.color = currentColor;
+          } else {
+            const newVertex = {
+              id: vertices.length,
+              x: x,
+              y: y,
+              color: currentColor,
+              name: (vertices.length + 1).toString()
+            };
+            vertices.push(newVertex);
+          }
+          redraw();
+        }
+      }
+    }, {passive: false});
+    
+    // ───── FEATURE BUTTONS ─────────────────────────────
     document.getElementById("inputSetBtn").addEventListener("click", () => {
       let vertexInput = prompt("Enter vertex set (e.g., {1,2,3}):");
       if (!vertexInput) return;
@@ -591,10 +922,43 @@
         }
       }
       
-      cleanGraph();
+      // After building the vertex/edge set, redraw (do not clear the graph)
+      redraw();
     });
     
-    // Check if Bipartite Feature.
+    document.getElementById("checkBipartiteBtn").addEventListener("click", () => {
+      let result = isBipartite();
+      let message = result ? "This graph is bipartite." : "This graph is not bipartite.";
+      document.getElementById("shortestPathResult").innerText = message;
+    });
+    
+    document.getElementById("shortestPathBtn").addEventListener("click", () => {
+      const startName = prompt("Enter the starting vertex name:");
+      const endName = prompt("Enter the ending vertex name:");
+      if (!startName || !endName) {
+        alert("Both node names are required.");
+        return;
+      }
+      const startVertex = vertices.find(v => v.name === startName);
+      const endVertex = vertices.find(v => v.name === endName);
+      if (!startVertex || !endVertex) {
+        alert("Could not find one or both vertices with the provided names.");
+        return;
+      }
+      const result = findShortestPath(startVertex.id, endVertex.id);
+      if (!result) {
+        document.getElementById("shortestPathResult").innerText = "No path found between " + startName + " and " + endName;
+      } else {
+        const pathNames = result.path.map(id => {
+          const v = vertices.find(v => v.id === id);
+          return v ? v.name : id;
+        });
+        const text = "Shortest path: " + pathNames.join("->") + "\nTotal weight: " + result.totalWeight;
+        document.getElementById("shortestPathResult").innerText = text;
+      }
+    });
+    
+    // ───── GRAPH ALGORITHMS ─────────────────────────────
     function isBipartite() {
       let color = {};
       vertices.forEach(v => { color[v.id] = -1; });
@@ -627,13 +991,7 @@
       }
       return true;
     }
-    document.getElementById("checkBipartiteBtn").addEventListener("click", () => {
-      let result = isBipartite();
-      let message = result ? "This graph is bipartite." : "This graph is not bipartite.";
-      document.getElementById("shortestPathResult").innerText = message;
-    });
     
-    // Calculate Shortest Path Feature.
     function findShortestPath(startId, endId) {
       const distances = {};
       const previous = {};
@@ -668,118 +1026,197 @@
       }
       return { totalWeight: distances[endId], path: path };
     }
-    document.getElementById("shortestPathBtn").addEventListener("click", () => {
-      const startName = prompt("Enter the starting vertex name:");
-      const endName = prompt("Enter the ending vertex name:");
-      if (!startName || !endName) {
-        alert("Both node names are required.");
-        return;
-      }
-      const startVertex = vertices.find(v => v.name === startName);
-      const endVertex = vertices.find(v => v.name === endName);
-      if (!startVertex || !endVertex) {
-        alert("Could not find one or both vertices with the provided names.");
-        return;
-      }
-      const result = findShortestPath(startVertex.id, endVertex.id);
-      if (!result) {
-        document.getElementById("shortestPathResult").innerText = "No path found between " + startName + " and " + endName;
-      } else {
-        const pathNames = result.path.map(id => {
-          const v = vertices.find(v => v.id === id);
-          return v ? v.name : id;
-        });
-        const text = "Shortest path: " + pathNames.join("->") + "\nTotal weight: " + result.totalWeight;
-        document.getElementById("shortestPathResult").innerText = text;
-      }
-    });
     
-    // Clean Graph Feature (force-directed layout) – only used when gridlines are off.
-    function cleanGraph() {
-      if (vertices.length === 0) return;
+    // ───── LOAD FAMOUS GRAPHS FUNCTION ─────────────────────────────
+    function loadFamousGraph(graphType) {
+      // Only work in plain graph mode (gridlines unchecked)
+      if (gridCheckbox.checked) return;
       pushState();
-      const width = canvas.width;
-      const height = canvas.height;
-      const marginX = width * 0.1;
-      const marginY = height * 0.1;
-      const numVertices = vertices.length;
-      const area = width * height;
-      const k = Math.sqrt(area / numVertices);
-      const iterations = 100;
-      let t = width / 10;
-      for (let i = 0; i < iterations; i++) {
-        const disp = vertices.map(() => ({ dx: 0, dy: 0 }));
-        // Repulsive forces.
-        for (let v = 0; v < vertices.length; v++) {
-          for (let u = v + 1; u < vertices.length; u++) {
-            const dx = vertices[v].x - vertices[u].x;
-            const dy = vertices[v].y - vertices[u].y;
-            const dist = Math.sqrt(dx * dx + dy * dy) + 0.01;
-            const force = (k * k) / dist;
-            const fx = (dx / dist) * force;
-            const fy = (dy / dist) * force;
-            disp[v].dx += fx;
-            disp[v].dy += fy;
-            disp[u].dx -= fx;
-            disp[u].dy -= fy;
+      vertices.length = 0;
+      edges.length = 0;
+      
+      const cw = canvas.width;
+      const ch = canvas.height;
+      const centerX = cw / 2;
+      const centerY = ch / 2;
+      
+      switch (graphType) {
+        case "petersen": {
+          // Petersen Graph: 10 vertices (5 outer, 5 inner)
+          const R = Math.min(cw, ch) * 0.35;
+          const r = R * 0.5;
+          // Outer vertices (indices 0..4)
+          for (let i = 0; i < 5; i++) {
+            let angle = (2 * Math.PI * i / 5) - Math.PI/2;
+            vertices.push({ id: vertices.length, x: centerX + R * Math.cos(angle), y: centerY + R * Math.sin(angle), color: "#ff0000", name: (vertices.length+1).toString() });
           }
-        }
-        // Attractive forces along edges.
-        edges.forEach(edge => {
-          const vIndex = vertices.findIndex(v => v.id === edge.from);
-          const uIndex = vertices.findIndex(v => v.id === edge.to);
-          if (vIndex < 0 || uIndex < 0) return;
-          const dx = vertices[vIndex].x - vertices[uIndex].x;
-          const dy = vertices[vIndex].y - vertices[uIndex].y;
-          const dist = Math.sqrt(dx * dx + dy * dy) + 0.01;
-          const force = (dist * dist) / k;
-          const fx = (dx / dist) * force;
-          const fy = (dy / dist) * force;
-          disp[vIndex].dx -= fx;
-          disp[vIndex].dy -= fy;
-          disp[uIndex].dx += fx;
-          disp[uIndex].dy += fy;
-        });
-        // Update positions with cooling; clamp within a 10% margin.
-        for (let v = 0; v < vertices.length; v++) {
-          let dx = disp[v].dx;
-          let dy = disp[v].dy;
-          const dispLength = Math.sqrt(dx * dx + dy * dy);
-          if (dispLength > 0) {
-            dx = (dx / dispLength) * Math.min(dispLength, t);
-            dy = (dy / dispLength) * Math.min(dispLength, t);
+          // Inner vertices (indices 5..9)
+          for (let i = 0; i < 5; i++) {
+            let angle = (2 * Math.PI * i / 5) - Math.PI/2 + Math.PI/5;
+            vertices.push({ id: vertices.length, x: centerX + r * Math.cos(angle), y: centerY + r * Math.sin(angle), color: "#ff0000", name: (vertices.length+1).toString() });
           }
-          vertices[v].x = Math.min(width - marginX - vertexRadius, Math.max(marginX + vertexRadius, vertices[v].x + dx));
-          vertices[v].y = Math.min(height - marginY - vertexRadius, Math.max(marginY + vertexRadius, vertices[v].y + dy));
+          // Outer cycle
+          for (let i = 0; i < 5; i++) {
+            edges.push({ from: i, to: (i+1)%5, weight: "1" });
+          }
+          // Inner star connections
+          edges.push({ from: 5, to: 7, weight: "1" });
+          edges.push({ from: 7, to: 9, weight: "1" });
+          edges.push({ from: 9, to: 6, weight: "1" });
+          edges.push({ from: 6, to: 8, weight: "1" });
+          edges.push({ from: 8, to: 5, weight: "1" });
+          // Connect corresponding outer to inner vertices
+          for (let i = 0; i < 5; i++) {
+            edges.push({ from: i, to: i+5, weight: "1" });
+          }
+          break;
         }
-        t *= 0.95;
+        case "complete": {
+          // Complete Graph K5: 5 vertices in a circle with every vertex connected to every other
+          const n = 5;
+          const R2 = Math.min(cw, ch) * 0.35;
+          for (let i = 0; i < n; i++) {
+            let angle = (2*Math.PI*i/n) - Math.PI/2;
+            vertices.push({ id: vertices.length, x: centerX + R2 * Math.cos(angle), y: centerY + R2 * Math.sin(angle), color: "#ff0000", name: (vertices.length+1).toString() });
+          }
+          for (let i = 0; i < n; i++) {
+            for (let j = i+1; j < n; j++) {
+              edges.push({ from: i, to: j, weight: "1" });
+            }
+          }
+          break;
+        }
+        case "cycle": {
+          // Cycle Graph C6: 6 vertices in a circle with consecutive connections
+          const n = 6;
+          const R2 = Math.min(cw, ch) * 0.35;
+          for (let i = 0; i < n; i++) {
+            let angle = (2*Math.PI*i/n) - Math.PI/2;
+            vertices.push({ id: vertices.length, x: centerX + R2 * Math.cos(angle), y: centerY + R2 * Math.sin(angle), color: "#ff0000", name: (vertices.length+1).toString() });
+          }
+          for (let i = 0; i < n; i++) {
+            edges.push({ from: i, to: (i+1)%n, weight: "1" });
+          }
+          break;
+        }
+        case "star": {
+          // Star Graph: 1 center and 5 outer vertices
+          const n = 6;
+          vertices.push({ id: vertices.length, x: centerX, y: centerY, color: "#ff0000", name: (vertices.length+1).toString() });
+          const R2 = Math.min(cw, ch) * 0.35;
+          for (let i = 1; i < n; i++) {
+            let angle = (2*Math.PI*(i-1)/(n-1)) - Math.PI/2;
+            vertices.push({ id: vertices.length, x: centerX + R2 * Math.cos(angle), y: centerY + R2 * Math.sin(angle), color: "#ff0000", name: (vertices.length+1).toString() });
+            edges.push({ from: 0, to: vertices.length - 1, weight: "1" });
+          }
+          break;
+        }
+        case "wheel": {
+          // Wheel Graph: 1 center vertex plus 5 outer vertices forming a cycle, with each outer vertex connected to the center
+          const n = 6; // 1 center + 5 outer vertices
+          vertices.push({ id: vertices.length, x: centerX, y: centerY, color: "#ff0000", name: (vertices.length+1).toString() });
+          const R2 = Math.min(cw, ch) * 0.35;
+          for (let i = 1; i < n; i++) {
+            let angle = (2*Math.PI*(i-1)/(n-1)) - Math.PI/2;
+            vertices.push({ id: vertices.length, x: centerX + R2 * Math.cos(angle), y: centerY + R2 * Math.sin(angle), color: "#ff0000", name: (vertices.length+1).toString() });
+          }
+          // Outer cycle
+          for (let i = 1; i < n; i++) {
+            edges.push({ from: i, to: (i === n-1 ? 1 : i+1), weight: "1" });
+          }
+          // Connect center to outer vertices
+          for (let i = 1; i < n; i++) {
+            edges.push({ from: 0, to: i, weight: "1" });
+          }
+          break;
+        }
+        default:
+          break;
       }
       redraw();
     }
     
-    // Utility: Update Clean Graph button visibility without shifting layout.
+    // ───── UPDATE CLEAN GRAPH & FAMOUS GRAPHS BUTTON VISIBILITY ─────────────────────────────
     function updateCleanGraphVisibility() {
       const cleanGraphBtn = document.getElementById("cleanGraphBtn");
-      // Use visibility so that the reserved space remains.
+      // Hide the Clean Graph button when grid is enabled, per original behavior.
       cleanGraphBtn.style.visibility = gridCheckbox.checked ? "hidden" : "visible";
+      const famousGraphsContainer = document.getElementById("famousGraphsContainer");
+      if (famousGraphsContainer) {
+        famousGraphsContainer.style.display = gridCheckbox.checked ? "none" : "inline-block";
+      }
     }
     
-    // Attach event listener to the Clean Graph button.
-    document.getElementById("cleanGraphBtn").addEventListener("click", () => {
-      // Only work if gridlines are off.
-      if (!gridCheckbox.checked) {
-        cleanGraph();
+    // ───── TOOLTIP HANDLING ─────────────────────────────
+    function distanceToSegment(x, y, x1, y1, x2, y2) {
+      const A = x - x1;
+      const B = y - y1;
+      const C = x2 - x1;
+      const D = y2 - y1;
+      const dot = A * C + B * D;
+      const len_sq = C * C + D * D;
+      let param = -1;
+      if (len_sq !== 0) param = dot / len_sq;
+      let xx, yy;
+      if (param < 0) {
+        xx = x1;
+        yy = y1;
+      } else if (param > 1) {
+        xx = x2;
+        yy = y2;
+      } else {
+        xx = x1 + param * C;
+        yy = y1 + param * D;
+      }
+      return Math.hypot(x - xx, y - yy);
+    }
+    
+    canvas.addEventListener("mousemove", (e) => {
+      if (isDraggingEdge) {
+        tooltip.style.display = "none";
+        return;
+      }
+      const mouseX = e.offsetX;
+      const mouseY = e.offsetY;
+      let found = false;
+      for (let v of vertices) {
+        if (Math.hypot(mouseX - v.x, mouseY - v.y) <= vertexRadius) {
+          let degree = edges.filter(edge => edge.from === v.id || edge.to === v.id).length;
+          tooltip.innerText = "Vertex: " + v.name + "\nDegree: " + degree;
+          tooltip.style.left = (e.pageX + 10) + "px";
+          tooltip.style.top = (e.pageY + 10) + "px";
+          tooltip.style.display = "block";
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        for (let edge of edges) {
+          const fromV = vertices.find(v => v.id === edge.from);
+          const toV = vertices.find(v => v.id === edge.to);
+          if (!fromV || !toV) continue;
+          const dist = distanceToSegment(mouseX, mouseY, fromV.x, fromV.y, toV.x, toV.y);
+          if (dist <= 5) {
+            tooltip.innerText = "Edge: " + fromV.name + " -> " + toV.name + "\nWeight: " + edge.weight;
+            tooltip.style.left = (e.pageX + 10) + "px";
+            tooltip.style.top = (e.pageY + 10) + "px";
+            tooltip.style.display = "block";
+            found = true;
+            break;
+          }
+        }
+      }
+      if (!found) {
+        tooltip.style.display = "none";
       }
     });
     
     function updateStats() {
       document.getElementById("vertexCount").innerText = vertices.length;
       document.getElementById("edgeCount").innerText = edges.length;
-      // For components, you might implement connected component counting.
       document.getElementById("componentCount").innerText = "N/A";
     }
     
-    // Redraw the canvas.
     function redraw() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       drawGrid();
@@ -799,7 +1236,64 @@
       updateStats();
     }
     
-    // Initial drawing.
+    // ───── EVENT LISTENERS FOR GRAPH ACTION BUTTONS ─────────────────────────────
+    document.getElementById("cleanGraphBtn").addEventListener("click", cleanGraph);
+    document.getElementById("resetGraphBtn").addEventListener("click", resetGraph);
+    
+    // ───── MOBILE CONTROLS (Only active on mobile) ─────────────────────────────
+    document.getElementById("mobileVertexModeBtn").addEventListener("click", function() {
+      mode = "vertex";
+      document.getElementById("currentMode").innerText = "Vertex Mode";
+      this.classList.add("active");
+      document.getElementById("mobileEdgeModeBtn").classList.remove("active");
+    });
+    document.getElementById("mobileEdgeModeBtn").addEventListener("click", function() {
+      mode = "edge";
+      document.getElementById("currentMode").innerText = "Edge Mode";
+      this.classList.add("active");
+      document.getElementById("mobileVertexModeBtn").classList.remove("active");
+    });
+    document.getElementById("mobileToggleWeightBtn").addEventListener("click", function() {
+      if (edgeWeightMode === "auto") {
+        edgeWeightMode = "prompt";
+        this.innerText = "Edge Weight: Custom";
+        document.getElementById("currentWeightMode").innerText = "Custom";
+      } else {
+        edgeWeightMode = "auto";
+        this.innerText = "Edge Weight: Auto";
+        document.getElementById("currentWeightMode").innerText = "Auto";
+      }
+    });
+    document.getElementById("mobileSettingsBtn").addEventListener("click", function() {
+      let panel = document.getElementById("customizationPanel");
+      if (panel.style.display === "none" || panel.style.display === "") {
+        panel.style.display = "block";
+        this.innerText = "Hide Settings";
+      } else {
+        panel.style.display = "none";
+        this.innerText = "Settings";
+      }
+    });
+    
+    // ───── FAMOUS GRAPHS BUTTON & DROPDOWN (Only visible in plain graph mode) ─────────────────────────────
+    document.getElementById("famousGraphsBtn").addEventListener("click", function() {
+      const sel = document.getElementById("famousGraphsSelect");
+      if (sel.style.display === "none" || sel.style.display === "") {
+        sel.style.display = "inline-block";
+      } else {
+        sel.style.display = "none";
+      }
+    });
+    document.getElementById("famousGraphsSelect").addEventListener("change", function() {
+      const graphType = this.value;
+      if (graphType !== "") {
+        loadFamousGraph(graphType);
+        this.value = "";
+        this.style.display = "none";
+      }
+    });
+    
+    // Initial draw
     updateCleanGraphVisibility();
     redraw();
   </script>
