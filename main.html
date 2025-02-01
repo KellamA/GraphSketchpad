@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Graph SketchPad</title>
+  <!-- Import the Roboto font for a modern look -->
+  <link href="https://fonts.googleapis.com/css?family=Roboto:400,500&display=swap" rel="stylesheet">
+  <style>
+    /* Header styling */
+    #header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    #header h1 {
+      margin: 0;
+      font-size: 28px;
+    }
+    #header .byline {
+      font-size: 14px;
+      color: #555;
+    }
+    /* Overall page styling */
+    body {
+      font-family: 'Roboto', sans-serif;
+      margin: 20px;
+      background-color: #d3d3d3;  /* Slightly darker grey */
+      color: #333;
+    }
+    /* Canvas styling (remains white) */
+    #graphCanvas {
+      border: 1px solid #333;
+      cursor: crosshair;
+      background-color: #fff;
+      display: block;
+      margin: 0 auto;
+    }
+    /* Controls container styling */
+    #controls {
+      margin-top: 20px;
+      text-align: center;
+      font-size: 18px;
+      line-height: 1.6;
+    }
+    /* Row 1: Graph Statistics, Clean Graph Button, and Grid Controls */
+    #stats {
+      margin-bottom: 10px;
+    }
+    #stats span {
+      margin: 0 20px;
+    }
+    /* Note: Instead of using display:none we use visibility:hidden so that the reserved space remains */
+    #cleanGraphBtn {
+      background-color: #28a745;
+      border: none;
+      color: #fff;
+      padding: 8px 12px;
+      margin-left: 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      transition: background-color 0.3s ease;
+      visibility: visible;
+    }
+    #cleanGraphBtn:hover {
+      background-color: #218838;
+    }
+    /* Fixed grid controls to avoid layout shifting */
+    #gridControls {
+      display: inline-block;
+      vertical-align: middle;
+      width: 300px; /* Fixed width reserved for grid controls */
+    }
+    #gridControls label {
+      margin-left: 10px;
+      font-size: 14px;
+    }
+    #gridOptions {
+      display: inline-block;
+      vertical-align: middle;
+      margin-left: 10px;
+      visibility: hidden;  /* Initially hidden */
+    }
+    #gridOptions input[type="number"] {
+      width: 50px;
+      margin: 0 5px;
+      font-size: 14px;
+    }
+    /* Row 2: Modes and Color Picker */
+    #modes {
+      display: flex;
+      flex-wrap: nowrap;
+      justify-content: center;
+      align-items: center;
+      gap: 20px;
+      margin-bottom: 10px;
+    }
+    .modeText {
+      display: inline-block;
+      min-width: 120px;
+      text-align: center;
+    }
+    /* Row 3: Feature Buttons */
+    #features {
+      margin-bottom: 10px;
+    }
+    #features button {
+      background-color: #007BFF;
+      border: none;
+      color: #fff;
+      padding: 10px 20px;
+      margin: 0 5px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      transition: background-color 0.3s ease;
+    }
+    #features button:hover {
+      background-color: #0056b3;
+    }
+    #features button:focus {
+      outline: none;
+    }
+    input[type="color"] {
+      vertical-align: middle;
+      margin-left: 10px;
+      cursor: pointer;
+      height: 30px;
+      width: 30px;
+      border: none;
+      background: none;
+    }
+    #shortestPathResult {
+      margin-top: 15px;
+      font-weight: 500;
+      white-space: pre-wrap; /* preserves newlines */
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <div id="header">
+    <h1>Graph SketchPad</h1>
+    <div class="byline">By: Kellam Adams, 2025</div>
+  </div>
+  
+  <!-- Canvas -->
+  <canvas id="graphCanvas" width="800" height="600"></canvas>
+  
+  <!-- Controls -->
+  <div id="controls">
+    <!-- Row 1: Graph Statistics, Clean Graph Button, and Grid Controls -->
+    <div id="stats">
+      <span>Vertices: <span id="vertexCount">0</span></span>
+      <span>Edges: <span id="edgeCount">0</span></span>
+      <span>Components: <span id="componentCount">0</span></span>
+      <button id="cleanGraphBtn">Clean Graph</button>
+      <div id="gridControls">
+        <label><input type="checkbox" id="gridCheckbox"> Grid Lines</label>
+        <div id="gridOptions">
+          <label># of Grid Lines:</label>
+          <input type="number" id="gridVertical" value="10" min="1">
+          <input type="number" id="gridHorizontal" value="10" min="1">
+        </div>
+      </div>
+    </div>
+    <!-- Row 2: Modes and Color Picker -->
+    <div id="modes">
+      <span>Current Mode: <span id="currentMode" class="modeText">Vertex Mode</span></span>
+      <span>Edge Weight Mode: <span id="currentWeightMode" class="modeText">Auto</span></span>
+      <span>Pick Vertex Color: <input type="color" id="colorPicker" value="#ff0000"></span>
+    </div>
+    <!-- Row 3: Feature Buttons -->
+    <div id="features">
+      <button id="shortestPathBtn">Calculate Shortest Path Between 2 Nodes</button>
+      <button id="inputSetBtn">Input Vertex/Edge Set</button>
+      <button id="checkBipartiteBtn">Check if Bipartite</button>
+    </div>
+    <!-- Result Display Area -->
+    <div id="shortestPathResult"></div>
+  </div>
+  
+  <script>
+    // Get the canvas and its 2D drawing context.
+    const canvas = document.getElementById("graphCanvas");
+    const ctx = canvas.getContext("2d");
+    
+    // Data arrays and undo stack.
+    const vertices = [];
+    const edges = [];
+    let undoStack = [];
+    
+    // Drawing parameters.
+    const vertexRadius = 15;
+    let selectedVertex = null;
+    let currentColor = document.getElementById("colorPicker").value;
+    
+    // Modes.
+    let mode = "vertex"; // "vertex" or "edge"
+    let edgeWeightMode = "auto"; // "auto" = weight "1", "prompt" asks for weight
+    
+    // Grid controls.
+    const gridCheckbox = document.getElementById("gridCheckbox");
+    const gridOptions = document.getElementById("gridOptions");
+    const gridVerticalInput = document.getElementById("gridVertical");
+    const gridHorizontalInput = document.getElementById("gridHorizontal");
+    
+    // When gridlines are toggled, update grid options, clean the graph,
+    // and update the Clean Graph button's visibility.
+    gridCheckbox.addEventListener("change", () => {
+      gridOptions.style.visibility = gridCheckbox.checked ? "visible" : "hidden";
+      updateCleanGraphVisibility();
+      wipeGraph();
+    });
+    
+    // When grid input values change, just redraw.
+    gridVerticalInput.addEventListener("change", redraw);
+    gridHorizontalInput.addEventListener("change", redraw);
+    
+    // Update currentColor.
+    document.getElementById("colorPicker").addEventListener("change", (e) => {
+      currentColor = e.target.value;
+    });
+    
+    // Keydown events for mode switching and undo.
+    document.addEventListener("keydown", (e) => {
+      if (e.ctrlKey && e.key.toLowerCase() === 'z') {
+        e.preventDefault();
+        undo();
+        return;
+      }
+      const key = e.key.toLowerCase();
+      if (key === "v") {
+        mode = "vertex";
+        selectedVertex = null;
+        document.getElementById("currentMode").innerText = "Vertex Mode";
+      } else if (key === "e") {
+        mode = "edge";
+        selectedVertex = null;
+        document.getElementById("currentMode").innerText = "Edge Mode";
+      } else if (key === "w") {
+        if (edgeWeightMode === "auto") {
+          edgeWeightMode = "prompt";
+          document.getElementById("currentWeightMode").innerText = "Custom";
+        } else {
+          edgeWeightMode = "auto";
+          document.getElementById("currentWeightMode").innerText = "Auto";
+        }
+      }
+    });
+    
+    // Undo functions.
+    function pushState() {
+      const state = JSON.stringify({ vertices, edges });
+      undoStack.push(state);
+    }
+    function undo() {
+      if (undoStack.length === 0) return;
+      const state = JSON.parse(undoStack.pop());
+      vertices.length = 0;
+      edges.length = 0;
+      state.vertices.forEach(v => vertices.push(v));
+      state.edges.forEach(e => edges.push(e));
+      selectedVertex = null;
+      redraw();
+    }
+    function wipeGraph() {
+      pushState();
+      vertices.length = 0;
+      edges.length = 0;
+      redraw();
+    }
+    
+    // Grid functions.
+    function computeGridIntersections() {
+      const verticalCount = parseInt(gridVerticalInput.value) || 10;
+      const horizontalCount = parseInt(gridHorizontalInput.value) || 10;
+      const marginX = canvas.width * 0.1;
+      const marginY = canvas.height * 0.1;
+      const usableWidth = canvas.width - 2 * marginX;
+      const usableHeight = canvas.height - 2 * marginY;
+      let intersections = [];
+      if (verticalCount > 1 && horizontalCount > 1) {
+        const vSpacing = usableWidth / (verticalCount - 1);
+        const hSpacing = usableHeight / (horizontalCount - 1);
+        for (let j = 0; j < horizontalCount; j++) {
+          for (let i = 0; i < verticalCount; i++) {
+            intersections.push({ x: marginX + i * vSpacing, y: marginY + j * hSpacing });
+          }
+        }
+      }
+      return intersections;
+    }
+    function getSnappedCoordinates(x, y) {
+      const intersections = computeGridIntersections();
+      if (intersections.length === 0) return { x, y };
+      let best = intersections[0];
+      let bestDist = Math.hypot(x - best.x, y - best.y);
+      intersections.forEach(pt => {
+        let d = Math.hypot(x - pt.x, y - pt.y);
+        if (d < bestDist) {
+          best = pt;
+          bestDist = d;
+        }
+      });
+      return { x: best.x, y: best.y };
+    }
+    function drawGrid() {
+      if (!gridCheckbox.checked) return;
+      const verticalCount = parseInt(gridVerticalInput.value) || 10;
+      const horizontalCount = parseInt(gridHorizontalInput.value) || 10;
+      const marginX = canvas.width * 0.1;
+      const marginY = canvas.height * 0.1;
+      const usableWidth = canvas.width - 2 * marginX;
+      const usableHeight = canvas.height - 2 * marginY;
+      ctx.save();
+      ctx.strokeStyle = "rgba(0,0,0,0.1)";
+      ctx.lineWidth = 1;
+      if (verticalCount > 1) {
+        const vSpacing = usableWidth / (verticalCount - 1);
+        for (let i = 0; i < verticalCount; i++) {
+          const x = marginX + i * vSpacing;
+          ctx.beginPath();
+          ctx.moveTo(x, marginY);
+          ctx.lineTo(x, canvas.height - marginY);
+          ctx.stroke();
+        }
+      }
+      if (horizontalCount > 1) {
+        const hSpacing = usableHeight / (horizontalCount - 1);
+        for (let j = 0; j < horizontalCount; j++) {
+          const y = marginY + j * hSpacing;
+          ctx.beginPath();
+          ctx.moveTo(marginX, y);
+          ctx.lineTo(canvas.width - marginX, y);
+          ctx.stroke();
+        }
+      }
+      ctx.restore();
+    }
+    
+    // ─── HELPER FUNCTIONS ─────────────────────────────
+    // Returns a vertex if (x,y) is within its radius.
+    function getVertexAt(x, y) {
+      for (let i = 0; i < vertices.length; i++) {
+        let v = vertices[i];
+        if (Math.hypot(x - v.x, y - v.y) <= vertexRadius) {
+          return v;
+        }
+      }
+      return null;
+    }
+    // Draw a vertex as a filled circle with its name.
+    function drawVertex(v) {
+      ctx.beginPath();
+      ctx.arc(v.x, v.y, vertexRadius, 0, 2 * Math.PI);
+      ctx.fillStyle = v.color;
+      ctx.fill();
+      ctx.strokeStyle = "black";
+      ctx.stroke();
+      ctx.fillStyle = "black";
+      ctx.font = "12px Roboto, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(v.name, v.x, v.y);
+    }
+    // Draw an edge between two vertices with its weight.
+    function drawEdge(edge) {
+      const fromVertex = vertices.find(v => v.id === edge.from);
+      const toVertex = vertices.find(v => v.id === edge.to);
+      if (!fromVertex || !toVertex) return;
+      ctx.beginPath();
+      ctx.moveTo(fromVertex.x, fromVertex.y);
+      ctx.lineTo(toVertex.x, toVertex.y);
+      ctx.strokeStyle = "black";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      // Draw the edge weight in the midpoint.
+      const midX = (fromVertex.x + toVertex.x) / 2;
+      const midY = (fromVertex.y + toVertex.y) / 2;
+      ctx.fillStyle = "red";
+      ctx.font = "12px Roboto, sans-serif";
+      ctx.fillText(edge.weight, midX, midY);
+    }
+    
+    // ─── EDGE DRAGGING (for edge creation) ─────────────────────────────
+    let isDraggingEdge = false;
+    let dragStartVertex = null;
+    let currentMouseX = 0;
+    let currentMouseY = 0;
+    let startDragX = 0;
+    let startDragY = 0;
+    let skipClick = false;
+    const DRAG_THRESHOLD = 5; // pixels
+
+    canvas.addEventListener("mousedown", (e) => {
+      if (mode !== "edge") return;
+      const x = e.offsetX;
+      const y = e.offsetY;
+      const v = getVertexAt(x, y);
+      if (v) {
+        isDraggingEdge = true;
+        dragStartVertex = v;
+        startDragX = x;
+        startDragY = y;
+      }
+    });
+    canvas.addEventListener("mousemove", (e) => {
+      if (!isDraggingEdge) return;
+      currentMouseX = e.offsetX;
+      currentMouseY = e.offsetY;
+      redraw();
+    });
+    canvas.addEventListener("mouseup", (e) => {
+      if (!isDraggingEdge) return;
+      const x = e.offsetX;
+      const y = e.offsetY;
+      const dragDist = Math.hypot(x - startDragX, y - startDragY);
+      if (dragDist > DRAG_THRESHOLD) {
+        const targetVertex = getVertexAt(x, y);
+        if (targetVertex && targetVertex.id !== dragStartVertex.id) {
+          pushState();
+          let weight;
+          if (edgeWeightMode === "prompt") {
+            weight = prompt("Enter edge weight:", "1");
+            if (!weight || weight.trim() === "") weight = "1";
+          } else {
+            weight = "1";
+          }
+          edges.push({ from: dragStartVertex.id, to: targetVertex.id, weight: weight });
+          skipClick = true;
+        }
+      }
+      isDraggingEdge = false;
+      dragStartVertex = null;
+      redraw();
+    });
+    
+    // ─── CLICK HANDLER (for vertex creation and edge selection) ─────────────────────────────
+    canvas.addEventListener("click", (e) => {
+      if (skipClick) { skipClick = false; return; }
+      const xOrig = e.offsetX;
+      const yOrig = e.offsetY;
+      let x = xOrig, y = yOrig;
+      if (mode === "vertex") {
+        pushState();
+        if (gridCheckbox.checked) {
+          const snapped = getSnappedCoordinates(x, y);
+          x = snapped.x;
+          y = snapped.y;
+        }
+        const clickedVertex = getVertexAt(x, y);
+        if (clickedVertex) {
+          clickedVertex.color = currentColor;
+        } else {
+          const newVertex = {
+            id: vertices.length,
+            x: x,
+            y: y,
+            color: currentColor,
+            name: (vertices.length + 1).toString()
+          };
+          vertices.push(newVertex);
+        }
+      } else if (mode === "edge") {
+        const clickedVertex = getVertexAt(x, y);
+        if (clickedVertex) {
+          if (!selectedVertex) {
+            selectedVertex = clickedVertex;
+          } else if (selectedVertex.id !== clickedVertex.id) {
+            pushState();
+            let weight;
+            if (edgeWeightMode === "prompt") {
+              weight = prompt("Enter edge weight:", "1");
+              if (!weight || weight.trim() === "") weight = "1";
+            } else {
+              weight = "1";
+            }
+            edges.push({ from: selectedVertex.id, to: clickedVertex.id, weight: weight });
+            selectedVertex = null;
+          }
+        } else {
+          selectedVertex = null;
+        }
+      }
+      redraw();
+    });
+    
+    // ─── CONTEXT MENU (right-click to rename a vertex) ─────────────────────────────
+    canvas.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      let x = e.offsetX;
+      let y = e.offsetY;
+      if (mode === "vertex") {
+        if (gridCheckbox.checked) {
+          const snapped = getSnappedCoordinates(x, y);
+          x = snapped.x;
+          y = snapped.y;
+        }
+        const clickedVertex = getVertexAt(x, y);
+        if (clickedVertex) {
+          pushState();
+          let newName = prompt("Enter custom name for this vertex:", clickedVertex.name);
+          if (newName && newName.trim() !== "") {
+            clickedVertex.name = newName.trim();
+            redraw();
+          }
+        }
+      }
+      return false;
+    });
+    
+    // ─── FEATURE BUTTONS ─────────────────────────────
+    // Input Vertex/Edge Set Feature.
+    document.getElementById("inputSetBtn").addEventListener("click", () => {
+      let vertexInput = prompt("Enter vertex set (e.g., {1,2,3}):");
+      if (!vertexInput) return;
+      vertexInput = vertexInput.trim();
+      if (!vertexInput.startsWith("{") || !vertexInput.endsWith("}")) {
+        alert("Vertex set must be enclosed in curly braces, e.g., {1,2,3}");
+        return;
+      }
+      let vertexContent = vertexInput.substring(1, vertexInput.length - 1);
+      let vertexNames = vertexContent.split(",").map(s => s.trim()).filter(s => s.length > 0);
+      
+      let edgeInput = prompt("Enter edge set (e.g., {(1,2),(3,4,10)}) (Leave empty if none):");
+      edgeInput = edgeInput ? edgeInput.trim() : "";
+      
+      pushState();
+      vertices.length = 0;
+      edges.length = 0;
+      
+      if (gridCheckbox.checked) {
+        const intersections = computeGridIntersections();
+        for (let i = 0; i < vertexNames.length; i++) {
+          let pos;
+          if (i < intersections.length) {
+            pos = intersections[i];
+          } else {
+            const marginX = canvas.width * 0.1;
+            const marginY = canvas.height * 0.1;
+            pos = {
+              x: marginX + Math.random() * (canvas.width - 2 * marginX),
+              y: marginY + Math.random() * (canvas.height - 2 * marginY)
+            };
+          }
+          vertices.push({
+            id: vertices.length,
+            x: pos.x,
+            y: pos.y,
+            color: "#ff0000",
+            name: vertexNames[i]
+          });
+        }
+      } else {
+        for (let i = 0; i < vertexNames.length; i++) {
+          let x = Math.random() * canvas.width;
+          let y = Math.random() * canvas.height;
+          vertices.push({
+            id: vertices.length,
+            x: x,
+            y: y,
+            color: "#ff0000",
+            name: vertexNames[i]
+          });
+        }
+      }
+      
+      if (edgeInput.length > 0) {
+        if (!edgeInput.startsWith("{") || !edgeInput.endsWith("}")) {
+          alert("Edge set must be enclosed in curly braces, e.g., {(1,2),(3,4,10)}");
+          return;
+        }
+        let edgeContent = edgeInput.substring(1, edgeInput.length - 1);
+        let edgeMatches = edgeContent.match(/\([^)]*\)/g);
+        if (edgeMatches) {
+          edgeMatches.forEach(match => {
+            let content = match.substring(1, match.length - 1);
+            let parts = content.split(",").map(s => s.trim()).filter(s => s.length > 0);
+            if (parts.length < 2) return;
+            let name1 = parts[0];
+            let name2 = parts[1];
+            let weight = (parts.length >= 3) ? parts[2] : "1";
+            let v1 = vertices.find(v => v.name === name1);
+            let v2 = vertices.find(v => v.name === name2);
+            if (v1 && v2) {
+              edges.push({ from: v1.id, to: v2.id, weight: weight });
+            }
+          });
+        }
+      }
+      
+      cleanGraph();
+    });
+    
+    // Check if Bipartite Feature.
+    function isBipartite() {
+      let color = {};
+      vertices.forEach(v => { color[v.id] = -1; });
+      for (let i = 0; i < vertices.length; i++) {
+        let v = vertices[i];
+        if (color[v.id] === -1) {
+          color[v.id] = 0;
+          let queue = [v.id];
+          while (queue.length > 0) {
+            let u = queue.shift();
+            let neighbors = [];
+            edges.forEach(edge => {
+              if (edge.from === u) {
+                neighbors.push(edge.to);
+              } else if (edge.to === u) {
+                neighbors.push(edge.from);
+              }
+            });
+            for (let j = 0; j < neighbors.length; j++) {
+              let n = neighbors[j];
+              if (color[n] === -1) {
+                color[n] = 1 - color[u];
+                queue.push(n);
+              } else if (color[n] === color[u]) {
+                return false;
+              }
+            }
+          }
+        }
+      }
+      return true;
+    }
+    document.getElementById("checkBipartiteBtn").addEventListener("click", () => {
+      let result = isBipartite();
+      let message = result ? "This graph is bipartite." : "This graph is not bipartite.";
+      document.getElementById("shortestPathResult").innerText = message;
+    });
+    
+    // Calculate Shortest Path Feature.
+    function findShortestPath(startId, endId) {
+      const distances = {};
+      const previous = {};
+      vertices.forEach(v => {
+        distances[v.id] = Infinity;
+        previous[v.id] = null;
+      });
+      distances[startId] = 0;
+      let Q = vertices.map(v => v.id);
+      while (Q.length > 0) {
+        let u = Q.reduce((minId, id) => distances[id] < distances[minId] ? id : minId, Q[0]);
+        Q = Q.filter(id => id !== u);
+        if (u === endId) break;
+        edges.forEach(edge => {
+          if (edge.from === u || edge.to === u) {
+            let v = (edge.from === u) ? edge.to : edge.from;
+            if (Q.includes(v)) {
+              let weight = parseFloat(edge.weight);
+              let alt = distances[u] + weight;
+              if (alt < distances[v]) {
+                distances[v] = alt;
+                previous[v] = u;
+              }
+            }
+          }
+        });
+      }
+      if (distances[endId] === Infinity) return null;
+      let path = [];
+      for (let u = endId; u !== null; u = previous[u]) {
+        path.unshift(u);
+      }
+      return { totalWeight: distances[endId], path: path };
+    }
+    document.getElementById("shortestPathBtn").addEventListener("click", () => {
+      const startName = prompt("Enter the starting vertex name:");
+      const endName = prompt("Enter the ending vertex name:");
+      if (!startName || !endName) {
+        alert("Both node names are required.");
+        return;
+      }
+      const startVertex = vertices.find(v => v.name === startName);
+      const endVertex = vertices.find(v => v.name === endName);
+      if (!startVertex || !endVertex) {
+        alert("Could not find one or both vertices with the provided names.");
+        return;
+      }
+      const result = findShortestPath(startVertex.id, endVertex.id);
+      if (!result) {
+        document.getElementById("shortestPathResult").innerText = "No path found between " + startName + " and " + endName;
+      } else {
+        const pathNames = result.path.map(id => {
+          const v = vertices.find(v => v.id === id);
+          return v ? v.name : id;
+        });
+        const text = "Shortest path: " + pathNames.join("->") + "\nTotal weight: " + result.totalWeight;
+        document.getElementById("shortestPathResult").innerText = text;
+      }
+    });
+    
+    // Clean Graph Feature (force-directed layout) – only used when gridlines are off.
+    function cleanGraph() {
+      if (vertices.length === 0) return;
+      pushState();
+      const width = canvas.width;
+      const height = canvas.height;
+      const marginX = width * 0.1;
+      const marginY = height * 0.1;
+      const numVertices = vertices.length;
+      const area = width * height;
+      const k = Math.sqrt(area / numVertices);
+      const iterations = 100;
+      let t = width / 10;
+      for (let i = 0; i < iterations; i++) {
+        const disp = vertices.map(() => ({ dx: 0, dy: 0 }));
+        // Repulsive forces.
+        for (let v = 0; v < vertices.length; v++) {
+          for (let u = v + 1; u < vertices.length; u++) {
+            const dx = vertices[v].x - vertices[u].x;
+            const dy = vertices[v].y - vertices[u].y;
+            const dist = Math.sqrt(dx * dx + dy * dy) + 0.01;
+            const force = (k * k) / dist;
+            const fx = (dx / dist) * force;
+            const fy = (dy / dist) * force;
+            disp[v].dx += fx;
+            disp[v].dy += fy;
+            disp[u].dx -= fx;
+            disp[u].dy -= fy;
+          }
+        }
+        // Attractive forces along edges.
+        edges.forEach(edge => {
+          const vIndex = vertices.findIndex(v => v.id === edge.from);
+          const uIndex = vertices.findIndex(v => v.id === edge.to);
+          if (vIndex < 0 || uIndex < 0) return;
+          const dx = vertices[vIndex].x - vertices[uIndex].x;
+          const dy = vertices[vIndex].y - vertices[uIndex].y;
+          const dist = Math.sqrt(dx * dx + dy * dy) + 0.01;
+          const force = (dist * dist) / k;
+          const fx = (dx / dist) * force;
+          const fy = (dy / dist) * force;
+          disp[vIndex].dx -= fx;
+          disp[vIndex].dy -= fy;
+          disp[uIndex].dx += fx;
+          disp[uIndex].dy += fy;
+        });
+        // Update positions with cooling; clamp within a 10% margin.
+        for (let v = 0; v < vertices.length; v++) {
+          let dx = disp[v].dx;
+          let dy = disp[v].dy;
+          const dispLength = Math.sqrt(dx * dx + dy * dy);
+          if (dispLength > 0) {
+            dx = (dx / dispLength) * Math.min(dispLength, t);
+            dy = (dy / dispLength) * Math.min(dispLength, t);
+          }
+          vertices[v].x = Math.min(width - marginX - vertexRadius, Math.max(marginX + vertexRadius, vertices[v].x + dx));
+          vertices[v].y = Math.min(height - marginY - vertexRadius, Math.max(marginY + vertexRadius, vertices[v].y + dy));
+        }
+        t *= 0.95;
+      }
+      redraw();
+    }
+    
+    // Utility: Update Clean Graph button visibility without shifting layout.
+    function updateCleanGraphVisibility() {
+      const cleanGraphBtn = document.getElementById("cleanGraphBtn");
+      // Use visibility so that the reserved space remains.
+      cleanGraphBtn.style.visibility = gridCheckbox.checked ? "hidden" : "visible";
+    }
+    
+    // Attach event listener to the Clean Graph button.
+    document.getElementById("cleanGraphBtn").addEventListener("click", () => {
+      // Only work if gridlines are off.
+      if (!gridCheckbox.checked) {
+        cleanGraph();
+      }
+    });
+    
+    function updateStats() {
+      document.getElementById("vertexCount").innerText = vertices.length;
+      document.getElementById("edgeCount").innerText = edges.length;
+      // For components, you might implement connected component counting.
+      document.getElementById("componentCount").innerText = "N/A";
+    }
+    
+    // Redraw the canvas.
+    function redraw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawGrid();
+      edges.forEach(drawEdge);
+      vertices.forEach(drawVertex);
+      if (isDraggingEdge && dragStartVertex) {
+        ctx.save();
+        ctx.strokeStyle = "#888";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath();
+        ctx.moveTo(dragStartVertex.x, dragStartVertex.y);
+        ctx.lineTo(currentMouseX, currentMouseY);
+        ctx.stroke();
+        ctx.restore();
+      }
+      updateStats();
+    }
+    
+    // Initial drawing.
+    updateCleanGraphVisibility();
+    redraw();
+  </script>
+</body>
+</html>
